@@ -1,9 +1,7 @@
 ## Implementação de um Chat Simples Usando Sockets em Python
 
 ### Como Executar o Chat
-1. Salve o código do servidor em um arquivo chamado chat_server.py e o código do cliente em um arquivo chamado chat_client.py.
-
-2. Abra um terminal e inicie o servidor:
+1. Abra um terminal e inicie o servidor:
 
 ```python
 python chat_server.py
