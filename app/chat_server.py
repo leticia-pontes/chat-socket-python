@@ -1,59 +1,87 @@
 import socket
 import threading
+import sys
 
-# Lista para manter o controle dos clientes conectados
-clients = []
-# Função para lidar com cada cliente conectado
+clients = {}  # Dicionário {socket: username}
+server_running = True  # Flag para controlar o loop do servidor
+
 def handle_client(client_socket, client_address):
+    global server_running
     print(f"[+] Nova conexão de {client_address}")
-    while True:
-        try:
-            # Recebe a mensagem do cliente
+
+    try:
+        username = client_socket.recv(1024).decode()
+        clients[client_socket] = username
+        print(f"[+] Usuário {username} conectado de {client_address}")
+
+        broadcast(f"🔵 {username} entrou no chat!", client_socket)
+
+        while server_running:
             message = client_socket.recv(1024)
             if message:
-                # Transmite a mensagem para os outros clientes
-                broadcast(message, client_socket)
+                broadcast(f"{username}: {message.decode()}", client_socket)
             else:
-                # Remove o cliente se a mensagem estiver vazia
                 remove_client(client_socket)
                 break
-        except:
-            continue
+    except:
+        remove_client(client_socket)
 
-# Função para transmitir mensagens a todos os clientes conectados
 def broadcast(message, sender_socket):
-    for client in clients:
+    for client in list(clients.keys()):  # Copia para evitar erro ao remover clientes
         if client != sender_socket:
             try:
-                client.send(message)
+                client.send(message.encode())
             except:
-                # Remove o cliente se houver um erro ao enviar
                 remove_client(client)
-# Função para remover um cliente da lista e fechar o socket
+
 def remove_client(client_socket):
     if client_socket in clients:
-        clients.remove(client_socket)
+        username = clients[client_socket]
+        print(f"[-] {username} saiu do chat.")
+        del clients[client_socket]
         client_socket.close()
-        print(f"[-] Conexão encerrada com {client_socket}")
+        broadcast(f"🔴 {username} saiu do chat.", None)
+
+def server_shutdown(server_socket):
+    global server_running
+    while True:
+        command = input()
+        if command.lower() == 'q':
+            print("\n[!] Desligando o servidor...")
+            server_running = False
+
+            # Fecha todos os clientes conectados
+            for client in list(clients.keys()):
+                client.send("Servidor encerrado.".encode())
+                client.close()
+            clients.clear()
+
+            # Fecha o servidor
+            server_socket.close()
+            sys.exit()
 
 def main():
-    server_host = '0.0.0.0'  # Escuta em todas as interfaces de rede
-    server_port = 5000  # Porta do servidor
+    server_host = '0.0.0.0'
+    server_port = 5000
 
-    # Cria o socket do servidor
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.bind((server_host, server_port))
     server_socket.listen(5)
     print(f"[+] Servidor ouvindo em {server_host}:{server_port}")
+    print("[!] Pressione 'q' e Enter para fechar o servidor.")
 
-    while True:
-        # Aceita novas conexões de clientes
-        client_socket, client_address = server_socket.accept()
-        clients.append(client_socket)
-        print(f"[+] Conexão estabelecida com {client_address}")
+    # Inicia a thread para monitorar o comando 'q'
+    shutdown_thread = threading.Thread(target=server_shutdown, args=(server_socket,))
+    shutdown_thread.daemon = True  # Encerra a thread ao fechar o programa
+    shutdown_thread.start()
 
-        # Inicia uma nova thread para lidar com o cliente
-        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
-        client_thread.start()
+    while server_running:
+        try:
+            client_socket, client_address = server_socket.accept()
+            client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address))
+            client_thread.start()
+        except OSError:
+            break  # Sai do loop se o socket for fechado
+
 if __name__ == "__main__":
     main()
