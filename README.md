@@ -8,7 +8,7 @@ python chat_server.py
 ```
 Você verá uma mensagem indicando que o servidor está ouvindo em 0.0.0.0:5000.
 
-3. Abra outro terminal para cada cliente que deseja conectar e execute:
+2. Abra outro terminal para cada cliente que deseja conectar e execute:
 
 ```python
 python chat_client.py
